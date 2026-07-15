@@ -4,23 +4,25 @@ import { CaptureDialog } from './components/CaptureDialog';
 import { ArrowIcon, ClockIcon, LayersIcon, PlusIcon } from './components/Icons';
 import { Login } from './components/Login';
 import { PanoramaViewer } from './components/PanoramaViewer';
-import { captureDates, locationsAtDate } from './timeline';
+import { captureDay, captureDays, dayToDate, locationsOnDay } from './timeline';
 import type { AppState, Capture, Floor, Location } from './types';
 
 const emptyState: AppState = { floors: [], locations: [], captures: [] };
 
-function formatDate(value: string, includeTime = false) {
-  return new Intl.DateTimeFormat('en-BE', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    ...(includeTime ? { hour: '2-digit', minute: '2-digit' } : {}),
-  }).format(new Date(value));
-}
+const dayFormat = new Intl.DateTimeFormat('en-BE', { day: '2-digit', month: 'short', year: 'numeric' });
+const timestampFormat = new Intl.DateTimeFormat('en-BE', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+const shortFormat = new Intl.DateTimeFormat('en-BE', { day: '2-digit', month: 'short' });
 
-function shortDate(value: string) {
-  return new Intl.DateTimeFormat('en-BE', { day: '2-digit', month: 'short' }).format(new Date(value));
-}
+const formatDay = (day: string) => dayFormat.format(dayToDate(day));
+const shortDay = (day: string) => shortFormat.format(dayToDate(day));
+const formatTimestamp = (value: string) => timestampFormat.format(new Date(value));
+const shortTimestamp = (value: string) => shortFormat.format(new Date(value));
 
 type DialogState =
   | { kind: 'new'; point: { floorId: Floor['id']; x: number; y: number } }
@@ -32,7 +34,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedFloor, setSelectedFloor] = useState<Floor['id']>('ground');
-  const [selectedDate, setSelectedDate] = useState<string>();
+  const [selectedDay, setSelectedDay] = useState<string>();
   const [selectedLocationId, setSelectedLocationId] = useState<string>();
   const [placing, setPlacing] = useState(false);
   const [dialog, setDialog] = useState<DialogState>();
@@ -48,8 +50,9 @@ export default function App() {
     try {
       const next = await api.state();
       setData(next);
-      const dates = captureDates(next.captures);
-      setSelectedDate(preferredDate && dates.includes(preferredDate) ? preferredDate : dates.at(-1));
+      const days = captureDays(next.captures);
+      const preferredDay = preferredDate ? captureDay(preferredDate) : undefined;
+      setSelectedDay(preferredDay && days.includes(preferredDay) ? preferredDay : days.at(-1));
       if (preferredLocation) setSelectedLocationId(preferredLocation);
       setError('');
     } catch (caught) {
@@ -67,11 +70,11 @@ export default function App() {
     if (authStatus === 'signed-in') void loadState();
   }, [authStatus]);
 
-  const dates = useMemo(() => captureDates(data.captures), [data.captures]);
-  const dateIndex = selectedDate ? dates.indexOf(selectedDate) : -1;
+  const days = useMemo(() => captureDays(data.captures), [data.captures]);
+  const dayIndex = selectedDay ? days.indexOf(selectedDay) : -1;
   const visibleLocations = useMemo(
-    () => locationsAtDate(data.locations, data.captures, selectedFloor, selectedDate),
-    [data.locations, data.captures, selectedFloor, selectedDate],
+    () => locationsOnDay(data.locations, data.captures, selectedFloor, selectedDay),
+    [data.locations, data.captures, selectedFloor, selectedDay],
   );
   const selectedLocation = data.locations.find((location) => location.id === selectedLocationId);
   const selectedCapture = visibleLocations.find((location) => location.id === selectedLocationId)?.capture;
@@ -99,7 +102,7 @@ export default function App() {
   }
 
   function selectHistory(capture: Capture) {
-    setSelectedDate(capture.capturedAt);
+    setSelectedDay(captureDay(capture.capturedAt));
   }
 
   async function removeCapture(capture: Capture) {
@@ -140,7 +143,7 @@ export default function App() {
         <section className="plan-panel">
           <header className="panel-heading">
             <div><span className="eyebrow">Current plan</span><h1>{floor?.name ?? 'Floor plan'}</h1></div>
-            <span className="capture-count">{visibleLocations.length} {visibleLocations.length === 1 ? 'view' : 'views'} at this date</span>
+            <span className="capture-count">{visibleLocations.length} {visibleLocations.length === 1 ? 'view' : 'views'} on this day</span>
           </header>
           <div className={`plan-frame ${placing ? 'placing' : ''}`}>
             {loading && <div className="plan-loading"><span className="spinner" /></div>}
@@ -162,7 +165,7 @@ export default function App() {
               </div>
             )}
           </div>
-          <div className="plan-legend"><span><i className="legend-dot current" /> Capture available</span><span><i className="legend-dot selected" /> Selected point</span><small>Dots show the latest view available on the selected date.</small></div>
+          <div className="plan-legend"><span><i className="legend-dot current" /> Capture available</span><span><i className="legend-dot selected" /> Selected point</span><small>Dots show the latest view available up to the selected day.</small></div>
         </section>
 
         <aside className="inspector">
@@ -173,7 +176,7 @@ export default function App() {
                 <div><span className="eyebrow">{selectedLocation.label}</span><h2>{selectedCapture.title}</h2></div>
                 <button className="icon-button" onClick={() => setSelectedLocationId(undefined)} aria-label="Close details">×</button>
               </div>
-              <p className="capture-date"><ClockIcon /> {formatDate(selectedCapture.capturedAt, true)}</p>
+              <p className="capture-date"><ClockIcon /> {formatTimestamp(selectedCapture.capturedAt)}</p>
               {selectedCapture.description && <p className="capture-description">{selectedCapture.description}</p>}
               {selectedCapture.tags.length > 0 && <div className="tags">{selectedCapture.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}
               <button className="button primary wide" onClick={() => setDialog({ kind: 'update', location: selectedLocation })}><PlusIcon /> Add a newer capture here</button>
@@ -181,7 +184,7 @@ export default function App() {
                 <div className="history-heading"><strong>Location history</strong><span>{locationHistory.length} captures</span></div>
                 {locationHistory.map((capture) => (
                   <div className={`history-item ${capture.id === selectedCapture.id ? 'active' : ''}`} key={capture.id}>
-                    <button onClick={() => selectHistory(capture)}><span>{shortDate(capture.capturedAt)}</span><strong>{capture.title}</strong><ArrowIcon size={16} /></button>
+                    <button onClick={() => selectHistory(capture)}><span>{shortTimestamp(capture.capturedAt)}</span><strong>{capture.title}</strong><ArrowIcon size={16} /></button>
                     <button className="delete-button" onClick={() => removeCapture(capture)} aria-label={`Delete ${capture.title}`}>×</button>
                   </div>
                 ))}
@@ -198,25 +201,25 @@ export default function App() {
       </main>
 
       <footer className="timeline-panel">
-        <div className="timeline-label"><ClockIcon /><div><span>Construction timeline</span><strong>{selectedDate ? formatDate(selectedDate) : 'No captures yet'}</strong></div></div>
+        <div className="timeline-label"><ClockIcon /><div><span>Construction timeline</span><strong>{selectedDay ? formatDay(selectedDay) : 'No captures yet'}</strong></div></div>
         <div className="timeline-control">
-          <div className="timeline-dates"><span>{dates[0] ? shortDate(dates[0]) : 'Start'}</span><span>{dates.at(-1) ? shortDate(dates.at(-1)!) : 'Today'}</span></div>
+          <div className="timeline-dates"><span>{days[0] ? shortDay(days[0]) : 'Start'}</span><span>{days.at(-1) ? shortDay(days.at(-1)!) : 'Today'}</span></div>
           <input
-            aria-label="Construction date"
+            aria-label="Construction day"
             type="range"
             min="0"
-            max={Math.max(0, dates.length - 1)}
-            value={Math.max(0, dateIndex)}
-            disabled={!dates.length}
-            onChange={(event) => { setSelectedDate(dates[Number(event.target.value)]); setSelectedLocationId(undefined); }}
-            style={{ '--progress': dates.length > 1 ? `${(Math.max(0, dateIndex) / (dates.length - 1)) * 100}%` : '0%' } as React.CSSProperties}
+            max={Math.max(0, days.length - 1)}
+            value={Math.max(0, dayIndex)}
+            disabled={!days.length}
+            onChange={(event) => { setSelectedDay(days[Number(event.target.value)]); setSelectedLocationId(undefined); }}
+            style={{ '--progress': days.length > 1 ? `${(Math.max(0, dayIndex) / (days.length - 1)) * 100}%` : '0%' } as React.CSSProperties}
           />
-          <div className="timeline-ticks">{dates.map((date) => <i key={date} title={formatDate(date)} />)}</div>
+          <div className="timeline-ticks">{days.map((day) => <i key={day} title={formatDay(day)} />)}</div>
         </div>
         <div className="timeline-stepper">
-          <button disabled={dateIndex <= 0} onClick={() => { setSelectedDate(dates[dateIndex - 1]); setSelectedLocationId(undefined); }}>‹</button>
-          <span>{dates.length ? `${dateIndex + 1} / ${dates.length}` : '0 / 0'}</span>
-          <button disabled={dateIndex < 0 || dateIndex >= dates.length - 1} onClick={() => { setSelectedDate(dates[dateIndex + 1]); setSelectedLocationId(undefined); }}>›</button>
+          <button disabled={dayIndex <= 0} onClick={() => { setSelectedDay(days[dayIndex - 1]); setSelectedLocationId(undefined); }}>‹</button>
+          <span>{days.length ? `${dayIndex + 1} / ${days.length}` : '0 / 0'}</span>
+          <button disabled={dayIndex < 0 || dayIndex >= days.length - 1} onClick={() => { setSelectedDay(days[dayIndex + 1]); setSelectedLocationId(undefined); }}>›</button>
         </div>
       </footer>
 
