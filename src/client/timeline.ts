@@ -34,7 +34,7 @@ export function locationsOnDay(
       const latest = captures
         .filter(
           (capture) =>
-            capture.locationId === location.id && captureDay(capture.capturedAt) <= selectedDay,
+            capture.locationId === location.id && captureDay(capture.capturedAt) === selectedDay,
         )
         .sort(
           (a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime(),

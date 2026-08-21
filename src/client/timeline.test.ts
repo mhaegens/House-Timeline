@@ -50,18 +50,15 @@ describe('construction timeline', () => {
     ]);
   });
 
-  it('keeps pins from earlier days visible on later days', () => {
+  it('does not show pins from earlier days on a later day with no captures', () => {
     const visible = locationsOnDay(locations, captures, 'ground', '2026-01-20');
-    expect(visible.map((location) => location.capture.id).sort()).toEqual([
-      'old-afternoon',
-      'old-morning',
-    ]);
+    expect(visible).toHaveLength(0);
   });
 
-  it('shows the latest capture at each location on or before the selected day', () => {
+  it('shows only captures made on exactly the selected day', () => {
     const visible = locationsOnDay(locations, captures, 'ground', '2026-02-10');
-    expect(visible.find((location) => location.id === 'a')?.capture.id).toBe('new');
-    expect(visible.find((location) => location.id === 'c')?.capture.id).toBe('old-afternoon');
+    expect(visible.map((location) => location.capture.id)).toEqual(['new']);
+    expect(visible.find((location) => location.id === 'c')).toBeUndefined();
   });
 
   it('does not show future captures or captures on another floor', () => {
