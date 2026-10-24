@@ -7,6 +7,7 @@ services:
       PORT: 3000
       DATABASE_URL: postgresql://housememory:${POSTGRES_PASSWORD:?}@database:5432/housememory
       APP_PASSWORD: ${APP_PASSWORD:?}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
       SESSION_SECRET: ${SESSION_SECRET:?}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       DATA_DIR: /app/data
@@ -37,3 +38,4 @@ services:
 volumes:
   panorama_data:
   postgres_data:
+

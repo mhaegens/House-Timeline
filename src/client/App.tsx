@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from './api';
 import { CaptureDialog } from './components/CaptureDialog';
+import { PlacementDialog } from './components/PlacementDialog';
+import { EditCaptureDialog } from './components/EditCaptureDialog';
 import { ArrowIcon, ClockIcon, LayersIcon, PlusIcon } from './components/Icons';
 import { Login } from './components/Login';
 import { PanoramaViewer } from './components/PanoramaViewer';
 import { captureDay, captureDays, dayToDate, locationsOnDay } from './timeline';
-import type { AppState, Capture, Floor, Location } from './types';
+import type { AppState, Capture, Floor, Location, Session } from './types';
 
 const emptyState: AppState = { floors: [], locations: [], captures: [] };
 
@@ -38,10 +40,22 @@ export default function App() {
   const [selectedLocationId, setSelectedLocationId] = useState<string>();
   const [placing, setPlacing] = useState(false);
   const [dialog, setDialog] = useState<DialogState>();
+  const [role, setRole] = useState<Session['role']>(null);
+  const [editingPosition, setEditingPosition] = useState(false);
+  const [editingCapture, setEditingCapture] = useState(false);
+  const [adminLogin, setAdminLogin] = useState(false);
+  const [adminError, setAdminError] = useState('');
+  const [adminBusy, setAdminBusy] = useState(false);
+  const isAdmin = role === 'admin';
+
+  function acceptSession(session: Session) {
+    setRole(session.role);
+    setAuthStatus(session.authenticated ? 'signed-in' : 'signed-out');
+  }
 
   useEffect(() => {
     api.session()
-      .then(({ authenticated }) => setAuthStatus(authenticated ? 'signed-in' : 'signed-out'))
+      .then(acceptSession)
       .catch(() => setAuthStatus('signed-out'));
   }, []);
 
@@ -84,7 +98,7 @@ export default function App() {
   const floor = data.floors.find((item) => item.id === selectedFloor);
 
   if (authStatus === 'loading') return <div className="app-loading"><span className="spinner" />Opening archive…</div>;
-  if (authStatus === 'signed-out') return <Login onAuthenticated={() => setAuthStatus('signed-in')} />;
+  if (authStatus === 'signed-out') return <Login onAuthenticated={acceptSession} />;
 
   function changeFloor(floorId: Floor['id']) {
     setSelectedFloor(floorId);
@@ -93,7 +107,7 @@ export default function App() {
   }
 
   function planClicked(event: React.MouseEvent<HTMLDivElement>) {
-    if (!placing) return;
+    if (!placing || !isAdmin) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
     const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
@@ -107,8 +121,10 @@ export default function App() {
 
   async function removeCapture(capture: Capture) {
     if (!window.confirm(`Delete “${capture.title}”? This cannot be undone.`)) return;
-    await api.deleteCapture(capture.id);
-    await loadState(undefined, selectedLocationId);
+    try {
+      await api.deleteCapture(capture.id);
+      await loadState(undefined, selectedLocationId);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not delete capture.'); }
   }
 
   return (
@@ -118,6 +134,8 @@ export default function App() {
           <div><strong>House Memory</strong><small>Construction archive</small></div>
         </div>
         <div className="topbar-meta">
+          <span className={`access-badge ${isAdmin ? 'admin' : ''}`}>{isAdmin ? 'Admin' : 'View only'}</span>
+          {!isAdmin && <button className="text-button" onClick={() => { setAdminLogin(true); setAdminError(''); }}>Admin sign in</button>}
           <button className="text-button" onClick={async () => { await api.logout(); setAuthStatus('signed-out'); }}>Lock</button>
         </div>
       </header>
@@ -131,9 +149,9 @@ export default function App() {
             </button>
           ))}
         </div>
-        <button className={`button add-point ${placing ? 'active' : ''}`} onClick={() => setPlacing((value) => !value)}>
+        {isAdmin && <button className={`button add-point ${placing ? 'active' : ''}`} onClick={() => setPlacing((value) => !value)}>
           <PlusIcon /> {placing ? 'Cancel placing' : 'Add camera point'}
-        </button>
+        </button>}
       </nav>
 
       {error && <div className="global-error">{error}<button onClick={() => loadState()}>Try again</button></div>}
@@ -165,7 +183,7 @@ export default function App() {
               </div>
             )}
           </div>
-          <div className="plan-legend"><span><i className="legend-dot current" /> Capture available</span><span><i className="legend-dot selected" /> Selected point</span><small>Dots show the latest view available up to the selected day.</small></div>
+          <div className="plan-legend"><span><i className="legend-dot current" /> Capture available</span><span><i className="legend-dot selected" /> Selected point</span><small>Dots show captures made on the selected day.</small></div>
         </section>
 
         <aside className="inspector">
@@ -179,13 +197,17 @@ export default function App() {
               <p className="capture-date"><ClockIcon /> {formatTimestamp(selectedCapture.capturedAt)}</p>
               {selectedCapture.description && <p className="capture-description">{selectedCapture.description}</p>}
               {selectedCapture.tags.length > 0 && <div className="tags">{selectedCapture.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}
-              <button className="button primary wide" onClick={() => setDialog({ kind: 'update', location: selectedLocation })}><PlusIcon /> Add a newer capture here</button>
+              {isAdmin && <div className="admin-actions">
+                <button className="button primary wide" onClick={() => setDialog({ kind: 'update', location: selectedLocation })}><PlusIcon /> Add a newer capture here</button>
+                <button className="button secondary" onClick={() => setEditingPosition(true)}>Move pin / floor</button>
+                <button className="button secondary" onClick={() => setEditingCapture(true)}>Edit capture / notes</button>
+              </div>}
               <div className="history">
                 <div className="history-heading"><strong>Location history</strong><span>{locationHistory.length} captures</span></div>
                 {locationHistory.map((capture) => (
                   <div className={`history-item ${capture.id === selectedCapture.id ? 'active' : ''}`} key={capture.id}>
                     <button onClick={() => selectHistory(capture)}><span>{shortTimestamp(capture.capturedAt)}</span><strong>{capture.title}</strong><ArrowIcon size={16} /></button>
-                    <button className="delete-button" onClick={() => removeCapture(capture)} aria-label={`Delete ${capture.title}`}>×</button>
+                    {isAdmin && <button className="delete-button" onClick={() => removeCapture(capture)} aria-label={`Delete ${capture.title}`}>×</button>}
                   </div>
                 ))}
               </div>
@@ -194,7 +216,7 @@ export default function App() {
             <div className="inspector-intro">
               <span className="eyebrow">360° archive</span>
               <h2>{visibleLocations.length ? 'Choose a point on the plan' : 'No views at this time'}</h2>
-              <p>{visibleLocations.length ? 'Each dot opens the most recent capture available at that point in the timeline.' : 'Move the timeline forward or add a camera point to start documenting this floor.'}</p>
+              <p>{visibleLocations.length ? 'Each dot opens a capture from the selected day at that camera point.' : isAdmin ? 'Choose another day or add a camera point to document this floor.' : 'Choose another day to explore the archive.'}</p>
             </div>
           )}
         </aside>
@@ -223,7 +245,36 @@ export default function App() {
         </div>
       </footer>
 
-      {dialog && (
+      {adminLogin && <div className="dialog-backdrop" onMouseDown={() => { if (!adminBusy) setAdminLogin(false); }}>
+        <section className="dialog" role="dialog" aria-modal="true" aria-labelledby="admin-title" onMouseDown={(event) => event.stopPropagation()}>
+          <header className="dialog-header"><div><span className="eyebrow">House Memory</span><h2 id="admin-title">Admin sign in</h2></div><button className="icon-button" disabled={adminBusy} onClick={() => setAdminLogin(false)} aria-label="Close">×</button></header>
+          <form className="capture-form" onSubmit={async (event) => {
+            event.preventDefault(); setAdminBusy(true); setAdminError('');
+            const password = String(new FormData(event.currentTarget).get('password'));
+            try {
+              const session = await api.login(password);
+              acceptSession(session);
+              if (session.role !== 'admin') { setAdminError('That password provides view-only access. Enter the admin password.'); return; }
+              setAdminLogin(false);
+            } catch (caught) { setAdminError(caught instanceof Error ? caught.message : 'Could not sign in.'); }
+            finally { setAdminBusy(false); }
+          }}>
+            <label><span>Admin password</span><input name="password" type="password" required autoFocus autoComplete="current-password" /></label>
+            {adminError && <p className="form-error" role="alert">{adminError}</p>}
+            <footer className="dialog-actions"><button type="button" className="button secondary" disabled={adminBusy} onClick={() => setAdminLogin(false)}>Cancel</button><button className="button primary" disabled={adminBusy}>{adminBusy ? 'Signing in…' : 'Sign in as admin'}</button></footer>
+          </form>
+        </section>
+      </div>}
+      {isAdmin && editingPosition && selectedCapture && selectedLocation && <PlacementDialog
+        capture={selectedCapture} location={selectedLocation} floors={data.floors} historyCount={locationHistory.length}
+        onClose={() => setEditingPosition(false)}
+        onSaved={async (floorId, locationId) => { setEditingPosition(false); setSelectedFloor(floorId); await loadState(selectedCapture.capturedAt, locationId); }}
+      />}
+      {isAdmin && editingCapture && selectedCapture && <EditCaptureDialog capture={selectedCapture}
+        onClose={() => setEditingCapture(false)}
+        onSaved={async (capture) => { setEditingCapture(false); await loadState(capture.capturedAt, capture.locationId); }}
+      />}
+      {isAdmin && dialog && (
         <CaptureDialog
           point={dialog.kind === 'new' ? dialog.point : undefined}
           location={dialog.kind === 'update' ? dialog.location : undefined}
@@ -234,3 +285,4 @@ export default function App() {
     </div>
   );
 }
+

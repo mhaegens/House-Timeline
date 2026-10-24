@@ -30,3 +30,6 @@ export type AppState = {
   locations: Location[];
   captures: Capture[];
 };
+
+export type Session = { authenticated: boolean; role: 'viewer' | 'admin' | null };
+

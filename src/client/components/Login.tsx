@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { api } from '../api';
 import { CameraIcon } from './Icons';
+import type { Session } from '../types';
 
-export function Login({ onAuthenticated }: { onAuthenticated: () => void }) {
+export function Login({ onAuthenticated }: { onAuthenticated: (session: Session) => void }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -12,8 +13,8 @@ export function Login({ onAuthenticated }: { onAuthenticated: () => void }) {
     setError('');
     try {
       const data = new FormData(event.currentTarget);
-      await api.login(String(data.get('password')));
-      onAuthenticated();
+      const session = await api.login(String(data.get('password')));
+      onAuthenticated(session);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not sign in.');
       setBusy(false);
@@ -26,7 +27,7 @@ export function Login({ onAuthenticated }: { onAuthenticated: () => void }) {
         <div className="login-mark"><CameraIcon size={30} /></div>
         <span className="eyebrow">Private construction archive</span>
         <h1>House Memory</h1>
-        <p>Your plans, construction history, and 360° views—all kept on your own network.</p>
+        <p>Explore the construction archive with the viewer password, or use the admin password to make changes.</p>
         <form onSubmit={submit}>
           <label>
             <span>Password</span>
@@ -40,3 +41,4 @@ export function Login({ onAuthenticated }: { onAuthenticated: () => void }) {
     </main>
   );
 }
+

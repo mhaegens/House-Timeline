@@ -13,6 +13,9 @@ The application is designed for a single household and a LAN-only Coolify deploy
 - Interactive equirectangular 360° image viewer
 - Capture descriptions, tags, initial viewing direction, and location history
 - Password-protected application, floor plans, and uploaded media
+- Separate view-only and administrator passwords, enforced by the server
+- Admin editing of capture notes, date/time, tags, viewing direction, pin coordinates, and floor
+- Move one capture independently or move a camera point with its entire history
 - PostgreSQL metadata storage
 - Persistent filesystem storage for panorama files
 - Responsive desktop and mobile interface
@@ -37,6 +40,18 @@ Uploaded panoramas are stored under `/app/data` in the application container. Po
 Export each photograph as a stitched **2:1 equirectangular JPEG**. PNG and WebP are also accepted, with a maximum upload size of 120 MB.
 
 Keep the original `.insp` files in a separate archive. Browsers cannot display them directly, and House Memory does not replace an original-media backup.
+
+For X3 HDR photographs, import every exposure belonging to a shot together in Insta360 Studio (at least three). Let Studio merge the HDR group, then export a **360 photo**, not a reframed flat photo. The result must be a stitched 2:1 equirectangular JPEG. Merely renaming an INSP file leaves two fisheye circles and will not display correctly in the panorama viewer.
+
+## Viewer and admin access
+
+`APP_PASSWORD` is the existing household viewer password. Viewers can explore plans, photos, and history but cannot upload, add notes, edit, move, or delete anything. Existing sessions automatically become view-only after the upgrade.
+
+`ADMIN_PASSWORD` enables editing using the same login screen or **Admin sign in** in the top bar. The initial Compose default is `admin123`, as requested for this installation; override it with a private runtime value in Coolify when changing it. It must differ from `APP_PASSWORD`. When running the server directly in production with no `ADMIN_PASSWORD`, admin sign-in is disabled. Passwords are never sent to the frontend or stored in session tokens. Changing a configured password invalidates new-format sessions for that role.
+
+Select a pin, then choose **Move pin / floor**. Choose Basement, Ground floor, or First floor and click the correct position on the preview plan, or enter X/Y percentages. By default, only the selected capture moves; if a point has multiple captures, the whole history can be moved instead. **Edit capture / notes** changes the capture metadata without replacing the photograph.
+
+Each production start also saves a metadata snapshot under `/app/data/backups/`, outside the web-served uploads directory. Media stays in the persistent panorama volume. These metadata snapshots supplement backups of both Docker volumes; they do not replace a full media and database backup.
 
 ## Floor plans
 
@@ -109,6 +124,7 @@ Coolify detects the variables referenced by `compose.yaml`. Set these as runtime
 
 ```dotenv
 APP_PASSWORD=choose-a-long-private-password
+ADMIN_PASSWORD=admin123
 SESSION_SECRET=<64 hexadecimal characters>
 POSTGRES_PASSWORD=<48 hexadecimal characters>
 COOKIE_SECURE=false
@@ -182,3 +198,4 @@ pnpm build
 ```
 
 The application exposes an unauthenticated `/healthz` endpoint for container health checks. All plans, captures, uploads, and API data remain behind the session cookie.
+
