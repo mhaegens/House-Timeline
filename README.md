@@ -11,6 +11,7 @@ The application is designed for a single household and a LAN-only Coolify deploy
 - Multiple dated captures at the same physical location
 - Construction timeline showing the newest capture available at each location as of the selected date
 - Interactive equirectangular 360° image viewer
+- Point timelapse with crossfades, date scrubbing, playback pace, and optional nearby photographs
 - Capture descriptions, tags, initial viewing direction, and location history
 - Password-protected application, floor plans, and uploaded media
 - Separate view-only and administrator passwords, enforced by the server
@@ -52,6 +53,14 @@ For X3 HDR photographs, import every exposure belonging to a shot together in In
 Select a pin, then choose **Move pin / floor**. Choose Basement, Ground floor, or First floor and click the correct position on the preview plan, or enter X/Y percentages. By default, only the selected capture moves; if a point has multiple captures, the whole history can be moved instead. **Edit capture / notes** changes the capture metadata without replacing the photograph.
 
 Each production start also saves a metadata snapshot under `/app/data/backups/`, outside the web-served uploads directory. Media stays in the persistent panorama volume. These metadata snapshots supplement backups of both Docker volumes; they do not replace a full media and database backup.
+
+## Timelapse and viewing direction
+
+Select a camera point and choose **Timelapse**. Playback starts at its earliest available visit and fades through one real photograph per date. Use Play/Pause, the date slider, or the previous/next controls; the pace menu changes the time spent on each photograph. Playback waits for the image and fade to finish, stops at the last visit, and pauses when the tab is hidden or an editing dialog opens. Reduced-motion preferences disable the fades.
+
+**Include nearby photos** fills missing visits with the closest photograph on the same floor, within 12% of the plan size. Every distance is measured from the point originally selected, so the sequence cannot drift through the house. Exact-point photographs take priority; nearby frames are labelled. Roof and scaffold views are kept out of indoor sequences. Turn the option off for exact-point history only. Choosing a different point or floor exits the timelapse.
+
+The saved starting direction aligns photographs over time. Looking around preserves the same relative direction and pitch when moving between dates; each photograph opens fully zoomed out. In admin mode, look toward a fixed landmark, open **Details**, and choose **Save current view as starting direction** to correct the selected photograph. Nearby camera positions can introduce parallax even when their directions agree.
 
 ## Floor plans
 

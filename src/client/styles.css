@@ -295,3 +295,49 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
   .panorama-viewer .psv-navbar { left: 12px; transform: none; }
   .panorama-viewer .psv-move-button, .panorama-viewer .psv-zoom-range { display: none !important; }
 }
+
+/* Playback stays in the camera scene, with the main timeline in reach. */
+.panorama-shell { position: relative; width: 100%; height: 100%; }
+.panorama-status { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); border-radius: 20px; padding: 8px 13px; color: white; background: #18382be8; font-size: 11px; pointer-events: none; z-index: 2; }
+.panorama-error { top: 45%; max-width: 80%; border-radius: 10px; text-align: center; pointer-events: auto; }
+.panorama-error button { border: 0; border-radius: 5px; padding: 6px 9px; margin-left: 6px; background: var(--paper); cursor: pointer; }
+.scene-dock button:disabled { opacity: .4; cursor: default; }
+.timelapse-controls { position: absolute; left: 100px; bottom: 20px; z-index: 4; width: min(490px, calc(100% - 450px)); padding: 13px 16px; }
+.timelapse-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.timelapse-heading strong { display: block; margin-top: 4px; font-family: Georgia, serif; font-size: 19px; font-weight: 500; }
+.timelapse-heading .eyebrow { font-size: 8px; }
+.timelapse-transport { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+.timelapse-play, .timelapse-step { flex-shrink: 0; border: 0; border-radius: 7px; height: 35px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.timelapse-play { min-width: 94px; padding: 0 12px; background: var(--green); color: white; font-size: 11px; font-weight: 750; }
+.timelapse-step { width: 30px; background: #e7e8df; font-size: 23px; }
+.timelapse-controls button:disabled { opacity: .4; cursor: default; }
+.timelapse-count { margin: 0 4px; color: var(--muted); font-size: 10px; white-space: nowrap; }
+.timelapse-pace { display: flex; align-items: center; gap: 6px; margin-left: auto; color: var(--muted); font-size: 10px; }
+.timelapse-pace select { background: #fffefa; border: 1px solid var(--line); border-radius: 6px; padding: 7px 3px; font: inherit; color: var(--ink); }
+.timelapse-options { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 12px; margin-top: 12px; font-size: 10px; color: var(--muted); }
+.timelapse-options label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+.timelapse-options input { margin: 0; accent-color: var(--green); }
+.timelapse-options > span { margin-left: auto; font-size: 9px; }
+.timelapse-options .nearby-photo { color: #9b5425; }
+.timelapse-help { font-size: 11px; line-height: 1.5; color: var(--muted); margin-bottom: 0; }
+.has-timelapse .scene-caption { display: none; }
+.has-timelapse .panorama-viewer .psv-navbar { bottom: 180px; }
+.save-direction, .direction-message { grid-column: 1 / -1; }
+.direction-message { color: var(--green); font-size: 11px; margin: 2px 0; }
+@media (min-width: 601px) and (max-width: 1100px) {
+  .timelapse-controls { width: min(430px, calc(100% - 360px)); left: 85px; padding: 12px; }
+  .timelapse-options > span { margin-left: 0; }
+}
+@media (min-width: 601px) and (max-width: 750px) {
+  .has-timelapse .panorama-viewer .psv-navbar { bottom: 230px; }
+}
+@media (max-width: 600px) {
+  .timelapse-controls { left: 12px; right: 12px; bottom: 74px; width: auto; padding: 12px 14px; }
+  .timelapse-heading strong { font-size: 17px; }
+  .timelapse-pace { font-size: 9px; gap: 4px; }
+  .timelapse-controls .timelapse-play { min-width: 84px; }
+  .timelapse-options { font-size: 9px; gap: 6px; }
+  .has-timelapse .side-panels { bottom: 245px; max-height: calc(100% - 360px); }
+  .has-timelapse .side-panels:has(.details-panel), .has-timelapse .side-panels.map-expanded { top: 110px; bottom: 245px; max-height: none; }
+  .has-timelapse .panorama-viewer .psv-navbar { bottom: 245px; }
+}
