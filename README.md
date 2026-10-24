@@ -48,7 +48,7 @@ For X3 HDR photographs, import every exposure belonging to a shot together in In
 
 `APP_PASSWORD` is the existing household viewer password. Viewers can explore plans, photos, and history but cannot upload, add notes, edit, move, or delete anything. Existing sessions automatically become view-only after the upgrade.
 
-`ADMIN_PASSWORD` enables editing using the same login screen or **Admin sign in** in the top bar. There is no default admin password. Set a private `ADMIN_PASSWORD` runtime value in Coolify; Docker Compose requires it before deployment. It must differ from `APP_PASSWORD`. When running the server directly in production with no `ADMIN_PASSWORD`, admin sign-in is disabled. Passwords are never sent to the frontend or stored in session tokens. Changing a configured password invalidates new-format sessions for that role.
+`ADMIN_PASSWORD` enables editing using the same login screen or **Admin sign in** in the top bar. There is no default admin password. Set a private `ADMIN_PASSWORD` runtime value in Coolify; The application requires it at startup in production; the image build does not need this runtime secret. It must differ from `APP_PASSWORD`. Production startup fails if `ADMIN_PASSWORD` is missing; in development, admin sign-in stays disabled until it is set. Passwords are never sent to the frontend or stored in session tokens. Changing a configured password invalidates new-format sessions for that role.
 
 Select a pin, then choose **Move pin / floor**. Choose Basement, Ground floor, or First floor and click the correct position on the preview plan, or enter X/Y percentages. By default, only the selected capture moves; if a point has multiple captures, the whole history can be moved instead. **Edit capture / notes** changes the capture metadata without replacing the photograph.
 
@@ -146,7 +146,7 @@ openssl rand -hex 32
 openssl rand -hex 24
 ```
 
-`APP_PASSWORD`, `ADMIN_PASSWORD`, `SESSION_SECRET`, and `POSTGRES_PASSWORD` are marked as required in the Compose file, so Coolify will block deployment while any of them are empty. See Coolify's [environment-variable documentation](https://coolify.io/docs/knowledge-base/environment-variables) for its normal and developer views.
+`APP_PASSWORD`, `SESSION_SECRET`, and `POSTGRES_PASSWORD` are marked as required in the Compose file. `ADMIN_PASSWORD` is required by the application at production startup and can stay runtime-only in Coolify. See Coolify's [environment-variable documentation](https://coolify.io/docs/knowledge-base/environment-variables) for its normal and developer views.
 
 Use `COOKIE_SECURE=true` only when the application is served over HTTPS. An HTTP-only LAN hostname requires `false`, otherwise the browser will not send the login cookie.
 
