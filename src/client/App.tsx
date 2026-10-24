@@ -101,6 +101,23 @@ export default function App() {
     if (authStatus === 'signed-in') void loadState();
   }, [authStatus]);
 
+  // Pick up direction corrections made in the admin tool without resetting the current visit.
+  useEffect(() => {
+    if (authStatus !== 'signed-in') return;
+    let active = true;
+    const refresh = () => {
+      if (document.visibilityState === 'hidden') return;
+      void api.state().then((next) => { if (active) setData(next); }).catch(() => {});
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [authStatus]);
+
   const days = useMemo(() => captureDays(data.captures), [data.captures]);
   const dayIndex = selectedDay ? days.indexOf(selectedDay) : -1;
   const visibleLocations = useMemo(
@@ -183,7 +200,7 @@ export default function App() {
 
       <main className={`workspace camera-workspace${cameraFocus ? ' camera-focus' : ''}`}>
         <section className="camera-stage" aria-label="360 degree camera view">
-          <PanoramaViewer capture={selectedCapture} />
+          <PanoramaViewer capture={selectedCapture} viewKey={anchor.current?.id ?? selectedLocation?.id ?? selectedFloor} />
         </section>
 
         <div className="scene-heading">
