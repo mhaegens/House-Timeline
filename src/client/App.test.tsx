@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import App from './App';
+import { api } from './api';
 
 vi.mock('./components/PanoramaViewer', () => ({ PanoramaViewer: ({capture}: {capture?: {id: string}}) => <div data-testid="camera">{capture?.id ?? 'empty'}</div> }));
 vi.mock('./api', () => ({ api: {
@@ -20,7 +21,7 @@ vi.mock('./api', () => ({ api: {
     ],
   }),
 }}));
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 async function openArchive() {
   render(<App />);
@@ -55,6 +56,14 @@ describe('camera workspace', () => {
     expect(screen.getByTestId('camera').textContent).toBe('nearby');
     fireEvent.keyDown(screen.getByRole('slider', {name: 'Construction day'}), {key: 'End'});
     expect(screen.getByTestId('camera').textContent).toBe('latest');
+  });
+  it('picks up tool updates when returning to the browser without changing the selected date', async () => {
+    const read = vi.spyOn(api, 'state');
+    await openArchive();
+    fireEvent.click(screen.getByRole('button', {name: 'Previous capture date'}));
+    fireEvent.focus(window);
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId('camera').textContent).toBe('nearby');
   });
   it('shows an empty camera on a floor with no captures, with navigation still available', async () => {
     await openArchive();

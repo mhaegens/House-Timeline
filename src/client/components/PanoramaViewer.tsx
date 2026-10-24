@@ -3,12 +3,16 @@ import type { Viewer as ViewerType } from '@photo-sphere-viewer/core';
 import '@photo-sphere-viewer/core/index.css';
 import type { Capture } from '../types';
 import { CameraIcon } from './Icons';
+import { alignedYaw, relativeYaw } from '../viewDirection';
 
-export function PanoramaViewer({ capture }: { capture: Capture | undefined }) {
+export function PanoramaViewer({ capture, viewKey }: { capture: Capture | undefined; viewKey?: string }) {
   const container = useRef<HTMLDivElement>(null);
+  const perspective = useRef<{ key: string; yaw: number; pitch: number; zoom: number } | undefined>(undefined);
 
   useEffect(() => {
     if (!container.current || !capture?.panoramaPath) return;
+    const key = viewKey ?? capture.locationId;
+    const previous = perspective.current?.key === key ? perspective.current : undefined;
     let viewer: ViewerType | undefined;
     let cancelled = false;
     void import('@photo-sphere-viewer/core').then(({ Viewer }) => {
@@ -16,16 +20,22 @@ export function PanoramaViewer({ capture }: { capture: Capture | undefined }) {
       viewer = new Viewer({
         container: container.current,
         panorama: capture.panoramaPath!,
-        defaultYaw: (capture.initialYaw * Math.PI) / 180,
+        defaultYaw: alignedYaw(capture.initialYaw, previous?.yaw),
+        defaultPitch: previous?.pitch ?? 0,
+        defaultZoomLvl: previous?.zoom ?? 50,
         navbar: ['zoom', 'move'],
         touchmoveTwoFingers: false,
       });
     });
     return () => {
       cancelled = true;
-      viewer?.destroy();
+      if (viewer) {
+        const position = viewer.getPosition();
+        perspective.current = { key, yaw: relativeYaw(position.yaw, capture.initialYaw), pitch: position.pitch, zoom: viewer.getZoomLevel() };
+        viewer.destroy();
+      }
     };
-  }, [capture?.id, capture?.panoramaPath, capture?.initialYaw]);
+  }, [capture?.id, capture?.panoramaPath, capture?.initialYaw, viewKey]);
 
   if (!capture?.panoramaPath) {
     return (
