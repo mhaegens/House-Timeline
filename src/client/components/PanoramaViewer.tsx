@@ -17,8 +17,8 @@ export function PanoramaViewer({ capture }: { capture: Capture | undefined }) {
         container: container.current,
         panorama: capture.panoramaPath!,
         defaultYaw: (capture.initialYaw * Math.PI) / 180,
-        navbar: ['zoom', 'move', 'fullscreen'],
-        touchmoveTwoFingers: true,
+        navbar: ['zoom', 'move'],
+        touchmoveTwoFingers: false,
       });
     });
     return () => {
@@ -41,3 +41,4 @@ export function PanoramaViewer({ capture }: { capture: Capture | undefined }) {
   }
   return <div className="panorama-viewer" ref={container} />;
 }
+
