@@ -21,6 +21,9 @@ export function assertConfig() {
   if (!config.appPassword) {
     throw new Error('APP_PASSWORD must be configured in production.');
   }
+  if (config.isProduction && !config.adminPassword) {
+    throw new Error('ADMIN_PASSWORD must be configured in production.');
+  }
   if (!config.sessionSecret || config.sessionSecret.length < 24) {
     throw new Error('SESSION_SECRET must contain at least 24 characters.');
   }
