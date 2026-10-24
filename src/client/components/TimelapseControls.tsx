@@ -8,7 +8,7 @@ export function TimelapseControls({ label, frames, index, playing, loading, pace
   const frame = frames[index];
   return <section className="timelapse-controls floating-panel" aria-label="Timelapse controls">
     <div className="timelapse-heading">
-      <div><span className="eyebrow">Timelapse · {frames.length} dates</span><strong>{label}</strong></div>
+      <div><strong>{label}</strong></div>
       <button className="panel-icon" aria-label="Close timelapse" onClick={onClose}>×</button>
     </div>
     <div className="timelapse-transport">

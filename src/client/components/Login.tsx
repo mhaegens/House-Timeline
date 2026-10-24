@@ -25,7 +25,6 @@ export function Login({ onAuthenticated }: { onAuthenticated: (session: Session)
     <main className="login-page">
       <section className="login-card">
         <div className="login-mark"><CameraIcon size={30} /></div>
-        <span className="eyebrow">Private construction archive</span>
         <h1>House Memory</h1>
         <p>Explore the construction archive with the viewer password, or use the admin password to make changes.</p>
         <form onSubmit={submit}>
@@ -37,7 +36,6 @@ export function Login({ onAuthenticated }: { onAuthenticated: (session: Session)
           <button className="button primary wide" type="submit" disabled={busy}>{busy ? 'Opening…' : 'Open archive'}</button>
         </form>
       </section>
-      <p className="login-footnote">Designed for a private, self-hosted home archive</p>
     </main>
   );
 }

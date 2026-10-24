@@ -289,7 +289,7 @@ export default function App() {
     <div className={`app-shell${placing ? ' is-placing' : ''}`}>
       <header className="topbar">
         <div className="brand">
-          <div><strong>House Memory</strong><small>Construction archive</small></div>
+          <strong>House Memory</strong>
         </div>
         <div className="topbar-meta">
           <span className={`access-badge ${isAdmin ? 'admin' : ''}`}>{isAdmin ? 'Admin' : 'View only'}</span>
@@ -304,7 +304,6 @@ export default function App() {
         </section>
 
         <div className="scene-heading">
-          <span className="scene-kicker"><i /> HOUSE / CONSTRUCTION ARCHIVE</span>
           <h1>{selectedLocation?.label ?? floor?.name ?? 'Explore the house'}</h1>
           <p>{selectedCapture ? <>{selectedCapture.title}<span> · {formatTimestamp(selectedCapture.capturedAt)}</span></> : 'No captures on this floor for this date. Choose another floor or date.'}</p>
         </div>
@@ -325,7 +324,7 @@ export default function App() {
         {!cameraFocus && <aside className={`side-panels${mapExpanded && mapOpen ? ' map-expanded' : ''}`} aria-label="Archive panels">
           {mapOpen && <section className={`map-panel floating-panel${mapExpanded ? ' expanded' : ''}`} aria-label="Floor map panel">
             <header className="floating-heading">
-              <div><span className="eyebrow">Find your position</span><h2>Floor map <span>{visibleLocations.length} points</span></h2></div>
+              <div><h2>Floor map <span>{visibleLocations.length} points</span></h2></div>
               <div className="panel-actions">
                 <button className="panel-icon" aria-label={mapExpanded ? 'Shrink map' : 'Expand map'} aria-expanded={mapExpanded} onClick={() => setMapExpanded(!mapExpanded)}><ExpandIcon /></button>
                 <button className="panel-icon" aria-label="Collapse map" onClick={() => { setMapOpen(false); setPlacing(false); }}>−</button>
@@ -352,10 +351,10 @@ export default function App() {
           </section>}
 
           {detailsOpen && !(mapOpen && mapExpanded) && <section className="details-panel floating-panel" aria-label="Capture details panel">
-            <header className="floating-heading"><div><span className="eyebrow">Behind the view</span><h2>Capture details</h2></div><button className="panel-icon" aria-label="Collapse details" onClick={() => setDetailsOpen(false)}>−</button></header>
+            <header className="floating-heading"><div><h2>Capture details</h2></div><button className="panel-icon" aria-label="Collapse details" onClick={() => setDetailsOpen(false)}>−</button></header>
             <div className="panel-scroll">
               {selectedLocation && selectedCapture ? <div className="capture-details">
-                <div className="capture-title-row"><div><span className="eyebrow">{selectedLocation.label}</span><h2>{selectedCapture.title}</h2></div></div>
+                <div className="capture-title-row"><div><h2>{selectedCapture.title}</h2></div></div>
                 <p className="capture-date"><ClockIcon /> {formatTimestamp(selectedCapture.capturedAt)}</p>
                 {selectedCapture.description && <p className="capture-description">{selectedCapture.description}</p>}
                 {selectedCapture.tags.length > 0 && <div className="tags">{selectedCapture.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}
@@ -381,12 +380,12 @@ export default function App() {
         {timelapse && <TimelapseControls label={timelapse.location.label} frames={frames} index={frameIndex} playing={playing} loading={readyCapture !== selectedCapture?.id} pace={pace} nearby={includeNearby}
           onPlay={playTimelapse} onStep={direction => { setPlaying(false); const frame = frames[frameIndex + direction]; if (frame) showFrame(frame); }}
           onPace={setPace} onNearby={changeNearby} onClose={closeTimelapse} />}
-        <div className="scene-caption"><CameraIcon size={16} /><span>360° VIEW</span><i /><span>Drag to look around</span></div>
+        <div className="scene-caption"><CameraIcon size={16} /><span>Drag to look around</span></div>
         <div className="scene-floor"><LayersIcon size={14} />{floor?.name}</div>
       </main>
 
       <footer className="timeline-panel" aria-label="Construction timeline">
-        <div className="timeline-label"><ClockIcon /><div><span>{timelapse ? 'Point timelapse' : 'Construction timeline'}</span><strong>{selectedDay ? formatDay(selectedDay) : 'No captures yet'}</strong><small>{timelapse ? `${frames.length} dates · ${timelapse.location.label}` : `${visibleLocations.length} camera points · ${floor?.name}`}</small></div></div>
+        <div className="timeline-label"><ClockIcon /><div><strong>{selectedDay ? formatDay(selectedDay) : 'No captures yet'}</strong><small>{timelapse ? `${frames.length} dates · ${timelapse.location.label}` : `${visibleLocations.length} camera points · ${floor?.name}`}</small></div></div>
         <div className="timeline-control">
           <div className="timeline-dates"><span>{timelineDays[0] ? shortDay(timelineDays[0]) : 'Start'}</span><span className="timeline-hint">{timelapse ? 'Drag through this point’s visits' : 'Drag through time · closest camera point'}</span><span>{timelineDays.at(-1) ? shortDay(timelineDays.at(-1)!) : 'Today'}</span></div>
           <input
@@ -418,7 +417,7 @@ export default function App() {
 
       {adminLogin && <div className="dialog-backdrop" onMouseDown={() => { if (!adminBusy) setAdminLogin(false); }}>
         <section className="dialog" role="dialog" aria-modal="true" aria-labelledby="admin-title" onMouseDown={(event) => event.stopPropagation()}>
-          <header className="dialog-header"><div><span className="eyebrow">House Memory</span><h2 id="admin-title">Admin sign in</h2></div><button className="icon-button" disabled={adminBusy} onClick={() => setAdminLogin(false)} aria-label="Close">×</button></header>
+          <header className="dialog-header"><div><h2 id="admin-title">Admin sign in</h2></div><button className="icon-button" disabled={adminBusy} onClick={() => setAdminLogin(false)} aria-label="Close">×</button></header>
           <form className="capture-form" onSubmit={async (event) => {
             event.preventDefault(); setAdminBusy(true); setAdminError('');
             const password = String(new FormData(event.currentTarget).get('password'));
