@@ -10,7 +10,7 @@ export const config = {
   dataDir: path.resolve(process.env.DATA_DIR ?? path.join(process.cwd(), 'data')),
   plansDir: path.resolve(process.env.PLANS_DIR ?? path.join(process.cwd(), 'plans')),
   appPassword: process.env.APP_PASSWORD ?? (isProduction ? '' : 'house'),
-  adminPassword: process.env.ADMIN_PASSWORD ?? (isProduction ? '' : 'admin123'),
+  adminPassword: process.env.ADMIN_PASSWORD ?? '',
   sessionSecret: process.env.SESSION_SECRET ?? (isProduction ? '' : 'local-development-secret'),
   cookieSecure: process.env.COOKIE_SECURE === 'true',
   useInMemoryDatabase: process.env.USE_IN_MEMORY_DB === 'true',

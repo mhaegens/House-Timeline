@@ -47,7 +47,7 @@ For X3 HDR photographs, import every exposure belonging to a shot together in In
 
 `APP_PASSWORD` is the existing household viewer password. Viewers can explore plans, photos, and history but cannot upload, add notes, edit, move, or delete anything. Existing sessions automatically become view-only after the upgrade.
 
-`ADMIN_PASSWORD` enables editing using the same login screen or **Admin sign in** in the top bar. The initial Compose default is `admin123`, as requested for this installation; override it with a private runtime value in Coolify when changing it. It must differ from `APP_PASSWORD`. When running the server directly in production with no `ADMIN_PASSWORD`, admin sign-in is disabled. Passwords are never sent to the frontend or stored in session tokens. Changing a configured password invalidates new-format sessions for that role.
+`ADMIN_PASSWORD` enables editing using the same login screen or **Admin sign in** in the top bar. There is no default admin password. Set a private `ADMIN_PASSWORD` runtime value in Coolify; Docker Compose requires it before deployment. It must differ from `APP_PASSWORD`. When running the server directly in production with no `ADMIN_PASSWORD`, admin sign-in is disabled. Passwords are never sent to the frontend or stored in session tokens. Changing a configured password invalidates new-format sessions for that role.
 
 Select a pin, then choose **Move pin / floor**. Choose Basement, Ground floor, or First floor and click the correct position on the preview plan, or enter X/Y percentages. By default, only the selected capture moves; if a point has multiple captures, the whole history can be moved instead. **Edit capture / notes** changes the capture metadata without replacing the photograph.
 
@@ -74,7 +74,7 @@ pnpm install
 USE_IN_MEMORY_DB=true pnpm dev
 ```
 
-Open `http://localhost:5173`. The development password is `house`. The in-memory database is empty and resets whenever the server restarts.
+Open `http://localhost:5173`. The development viewer password is `house`. Set `ADMIN_PASSWORD` in the environment to enable admin sign-in; it has no default. The in-memory database is empty and resets whenever the server restarts.
 
 ### Full local Docker deployment
 
@@ -124,7 +124,7 @@ Coolify detects the variables referenced by `compose.yaml`. Set these as runtime
 
 ```dotenv
 APP_PASSWORD=choose-a-long-private-password
-ADMIN_PASSWORD=admin123
+ADMIN_PASSWORD=<your-private-admin-password>
 SESSION_SECRET=<64 hexadecimal characters>
 POSTGRES_PASSWORD=<48 hexadecimal characters>
 COOKIE_SECURE=false
@@ -137,7 +137,7 @@ openssl rand -hex 32
 openssl rand -hex 24
 ```
 
-`APP_PASSWORD`, `SESSION_SECRET`, and `POSTGRES_PASSWORD` are marked as required in the Compose file, so Coolify will block deployment while any of them are empty. See Coolify's [environment-variable documentation](https://coolify.io/docs/knowledge-base/environment-variables) for its normal and developer views.
+`APP_PASSWORD`, `ADMIN_PASSWORD`, `SESSION_SECRET`, and `POSTGRES_PASSWORD` are marked as required in the Compose file, so Coolify will block deployment while any of them are empty. See Coolify's [environment-variable documentation](https://coolify.io/docs/knowledge-base/environment-variables) for its normal and developer views.
 
 Use `COOKIE_SECURE=true` only when the application is served over HTTPS. An HTTP-only LAN hostname requires `false`, otherwise the browser will not send the login cookie.
 
@@ -185,7 +185,7 @@ Before significant upgrades, back up both persistent volumes. Never use `docker 
 - Keep the repository private because the floor plans describe the house.
 - Keep Coolify, the host OS, Docker, and PostgreSQL images updated.
 - Restrict the Coolify server and the House Memory hostname to the LAN or a trusted VPN.
-- Use a strong, unique `APP_PASSWORD`.
+- Use strong, distinct `APP_PASSWORD` and `ADMIN_PASSWORD` values.
 - Do not commit `.env`; it is excluded by `.gitignore`.
 - Treat exported panoramas and their backups as sensitive household data.
 
