@@ -20,6 +20,19 @@ export function captureDays(captures: Capture[]): string[] {
   return [...new Set(captures.map((capture) => captureDay(capture.capturedAt)))].sort();
 }
 
+export function captureOnDay(
+  captures: Capture[],
+  locationId: string,
+  selectedDay: string | undefined,
+  preferredId?: string,
+): Capture | undefined {
+  const matching = captures.filter(
+    (capture) => capture.locationId === locationId && captureDay(capture.capturedAt) === selectedDay,
+  );
+  return matching.find((capture) => capture.id === preferredId)
+    ?? matching.sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime())[0];
+}
+
 export function locationsOnDay(
   locations: Location[],
   captures: Capture[],
@@ -31,14 +44,8 @@ export function locationsOnDay(
   return locations
     .filter((location) => location.floorId === floorId)
     .flatMap((location) => {
-      const latest = captures
-        .filter(
-          (capture) =>
-            capture.locationId === location.id && captureDay(capture.capturedAt) === selectedDay,
-        )
-        .sort(
-          (a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime(),
-        )[0];
+      const latest = captureOnDay(captures, location.id, selectedDay);
       return latest ? [{ ...location, capture: latest }] : [];
     });
 }
+

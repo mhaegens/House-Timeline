@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { captureDay, captureDays, dayToDate, locationsOnDay } from './timeline';
+import { captureDay, captureDays, captureOnDay, dayToDate, locationsOnDay } from './timeline';
 import type { Capture, Location } from './types';
 
 const locations: Location[] = [
@@ -29,6 +29,16 @@ const captures = [
 ];
 
 describe('construction timeline', () => {
+  it('opens an earlier shot explicitly selected from the same-day history', () => {
+    const sameDay = [...captures, capture('evening', 'a', '2026-01-10T18:00:00')];
+    expect(captureOnDay(sameDay, 'a', '2026-01-10')?.id).toBe('evening');
+    expect(captureOnDay(sameDay, 'a', '2026-01-10', 'old-morning')?.id).toBe('old-morning');
+  });
+
+  it('does not carry a history selection into a different day or point', () => {
+    expect(captureOnDay(captures, 'a', '2026-02-10', 'old-morning')?.id).toBe('new');
+    expect(captureOnDay(captures, 'c', '2026-01-10', 'old-morning')?.id).toBe('old-afternoon');
+  });
   it('derives the local calendar day of a capture', () => {
     expect(captureDay('2026-01-10T09:00:00')).toBe('2026-01-10');
     expect(captureDay('2026-01-10T23:59:00')).toBe('2026-01-10');
@@ -66,3 +76,4 @@ describe('construction timeline', () => {
     expect(locationsOnDay(locations, captures, 'basement', '2026-02-10')).toHaveLength(0);
   });
 });
+

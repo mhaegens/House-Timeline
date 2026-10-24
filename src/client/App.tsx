@@ -6,7 +6,7 @@ import { EditCaptureDialog } from './components/EditCaptureDialog';
 import { ArrowIcon, ClockIcon, LayersIcon, PlusIcon } from './components/Icons';
 import { Login } from './components/Login';
 import { PanoramaViewer } from './components/PanoramaViewer';
-import { captureDay, captureDays, dayToDate, locationsOnDay } from './timeline';
+import { captureDay, captureDays, captureOnDay, dayToDate, locationsOnDay } from './timeline';
 import type { AppState, Capture, Floor, Location, Session } from './types';
 
 const emptyState: AppState = { floors: [], locations: [], captures: [] };
@@ -24,7 +24,8 @@ const shortFormat = new Intl.DateTimeFormat('en-BE', { day: '2-digit', month: 's
 const formatDay = (day: string) => dayFormat.format(dayToDate(day));
 const shortDay = (day: string) => shortFormat.format(dayToDate(day));
 const formatTimestamp = (value: string) => timestampFormat.format(new Date(value));
-const shortTimestamp = (value: string) => shortFormat.format(new Date(value));
+const historyFormat = new Intl.DateTimeFormat('en-BE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+const shortTimestamp = (value: string) => historyFormat.format(new Date(value));
 
 type DialogState =
   | { kind: 'new'; point: { floorId: Floor['id']; x: number; y: number } }
@@ -38,6 +39,7 @@ export default function App() {
   const [selectedFloor, setSelectedFloor] = useState<Floor['id']>('ground');
   const [selectedDay, setSelectedDay] = useState<string>();
   const [selectedLocationId, setSelectedLocationId] = useState<string>();
+  const [selectedCaptureId, setSelectedCaptureId] = useState<string>();
   const [placing, setPlacing] = useState(false);
   const [dialog, setDialog] = useState<DialogState>();
   const [role, setRole] = useState<Session['role']>(null);
@@ -59,14 +61,20 @@ export default function App() {
       .catch(() => setAuthStatus('signed-out'));
   }, []);
 
-  async function loadState(preferredDate?: string, preferredLocation?: string) {
+  async function loadState(preferredDate?: string, preferredLocation?: string, preferredCapture?: string) {
     setLoading(true);
     try {
       const next = await api.state();
       setData(next);
       const days = captureDays(next.captures);
       const preferredDay = preferredDate ? captureDay(preferredDate) : undefined;
-      setSelectedDay(preferredDay && days.includes(preferredDay) ? preferredDay : days.at(-1));
+      const nextDay = preferredDay && days.includes(preferredDay) ? preferredDay : days.at(-1);
+      setSelectedDay(nextDay);
+      setSelectedCaptureId(preferredCapture);
+      if (!preferredDate && !preferredLocation && !locationsOnDay(next.locations, next.captures, selectedFloor, nextDay).length) {
+        const available = next.floors.find((item) => locationsOnDay(next.locations, next.captures, item.id, nextDay).length);
+        if (available) setSelectedFloor(available.id);
+      }
       if (preferredLocation) setSelectedLocationId(preferredLocation);
       setError('');
     } catch (caught) {
@@ -91,7 +99,9 @@ export default function App() {
     [data.locations, data.captures, selectedFloor, selectedDay],
   );
   const selectedLocation = data.locations.find((location) => location.id === selectedLocationId);
-  const selectedCapture = visibleLocations.find((location) => location.id === selectedLocationId)?.capture;
+  const selectedCapture = selectedLocation?.floorId === selectedFloor
+    ? captureOnDay(data.captures, selectedLocation.id, selectedDay, selectedCaptureId)
+    : undefined;
   const locationHistory = data.captures
     .filter((capture) => capture.locationId === selectedLocationId)
     .sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime());
@@ -103,6 +113,7 @@ export default function App() {
   function changeFloor(floorId: Floor['id']) {
     setSelectedFloor(floorId);
     setSelectedLocationId(undefined);
+    setSelectedCaptureId(undefined);
     setPlacing(false);
   }
 
@@ -116,6 +127,7 @@ export default function App() {
   }
 
   function selectHistory(capture: Capture) {
+    setSelectedCaptureId(capture.id);
     setSelectedDay(captureDay(capture.capturedAt));
   }
 
@@ -173,7 +185,7 @@ export default function App() {
                     key={location.id}
                     className={`map-marker ${selectedLocationId === location.id ? 'selected' : ''}`}
                     style={{ left: `${location.x * 100}%`, top: `${location.y * 100}%`, '--yaw': `${location.capture.initialYaw}deg` } as React.CSSProperties}
-                    onClick={(event) => { event.stopPropagation(); setSelectedLocationId(location.id); }}
+                    onClick={(event) => { event.stopPropagation(); setSelectedCaptureId(undefined); setSelectedLocationId(location.id); }}
                     aria-label={`${location.label}: ${location.capture.title}`}
                   >
                     <i className="direction-cone" />
@@ -268,11 +280,11 @@ export default function App() {
       {isAdmin && editingPosition && selectedCapture && selectedLocation && <PlacementDialog
         capture={selectedCapture} location={selectedLocation} floors={data.floors} historyCount={locationHistory.length}
         onClose={() => setEditingPosition(false)}
-        onSaved={async (floorId, locationId) => { setEditingPosition(false); setSelectedFloor(floorId); await loadState(selectedCapture.capturedAt, locationId); }}
+        onSaved={async (floorId, locationId) => { setEditingPosition(false); setSelectedFloor(floorId); await loadState(selectedCapture.capturedAt, locationId, selectedCapture.id); }}
       />}
       {isAdmin && editingCapture && selectedCapture && <EditCaptureDialog capture={selectedCapture}
         onClose={() => setEditingCapture(false)}
-        onSaved={async (capture) => { setEditingCapture(false); await loadState(capture.capturedAt, capture.locationId); }}
+        onSaved={async (capture) => { setEditingCapture(false); await loadState(capture.capturedAt, capture.locationId, capture.id); }}
       />}
       {isAdmin && dialog && (
         <CaptureDialog
