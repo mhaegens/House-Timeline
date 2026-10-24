@@ -7,7 +7,7 @@ import { alignedYaw, relativeYaw } from '../viewDirection';
 
 export function PanoramaViewer({ capture, viewKey }: { capture: Capture | undefined; viewKey?: string }) {
   const container = useRef<HTMLDivElement>(null);
-  const perspective = useRef<{ key: string; yaw: number; pitch: number; zoom: number } | undefined>(undefined);
+  const perspective = useRef<{ key: string; yaw: number; pitch: number } | undefined>(undefined);
 
   useEffect(() => {
     if (!container.current || !capture?.panoramaPath) return;
@@ -22,7 +22,7 @@ export function PanoramaViewer({ capture, viewKey }: { capture: Capture | undefi
         panorama: capture.panoramaPath!,
         defaultYaw: alignedYaw(capture.initialYaw, previous?.yaw),
         defaultPitch: previous?.pitch ?? 0,
-        defaultZoomLvl: previous?.zoom ?? 50,
+        defaultZoomLvl: 0,
         navbar: ['zoom', 'move'],
         touchmoveTwoFingers: false,
       });
@@ -31,7 +31,7 @@ export function PanoramaViewer({ capture, viewKey }: { capture: Capture | undefi
       cancelled = true;
       if (viewer) {
         const position = viewer.getPosition();
-        perspective.current = { key, yaw: relativeYaw(position.yaw, capture.initialYaw), pitch: position.pitch, zoom: viewer.getZoomLevel() };
+        perspective.current = { key, yaw: relativeYaw(position.yaw, capture.initialYaw), pitch: position.pitch };
         viewer.destroy();
       }
     };
