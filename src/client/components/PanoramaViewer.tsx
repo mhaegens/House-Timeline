@@ -19,13 +19,18 @@ export function PanoramaViewer({ capture, viewKey }: { capture: Capture | undefi
       if (cancelled || !container.current) return;
       viewer = new Viewer({
         container: container.current,
-        panorama: capture.panoramaPath!,
         defaultYaw: alignedYaw(capture.initialYaw, previous?.yaw),
         defaultPitch: previous?.pitch ?? 0,
         defaultZoomLvl: 0,
         navbar: ['zoom', 'move'],
         touchmoveTwoFingers: false,
       });
+      // Explicit load options take precedence over embedded Insta360 opening-view metadata.
+      void viewer.setPanorama(capture.panoramaPath!, {
+        position: { yaw: alignedYaw(capture.initialYaw, previous?.yaw), pitch: previous?.pitch ?? 0 },
+        zoom: 0,
+        transition: false,
+      }).catch(() => { if (!cancelled) viewer?.showError('Could not load this photograph.'); });
     });
     return () => {
       cancelled = true;
