@@ -29,7 +29,7 @@ export function EditCaptureDialog({ capture, onClose, onSaved }: {
   }
   return <div className="dialog-backdrop" onMouseDown={() => { if (!busy) onClose(); }}>
     <section className="dialog" role="dialog" aria-modal="true" aria-labelledby="edit-title" onMouseDown={(event) => event.stopPropagation()}>
-      <header className="dialog-header"><div><span className="eyebrow">Admin</span><h2 id="edit-title">Edit capture and notes</h2></div><button className="icon-button" onClick={onClose} disabled={busy} aria-label="Close">×</button></header>
+      <header className="dialog-header"><div><h2 id="edit-title">Edit capture and notes</h2></div><button className="icon-button" onClick={onClose} disabled={busy} aria-label="Close">×</button></header>
       <form className="capture-form" onSubmit={submit}>
         <fieldset className="editor-fields" disabled={busy}>
           <label><span>Capture title</span><input name="title" required maxLength={160} defaultValue={capture.title} autoFocus /></label>

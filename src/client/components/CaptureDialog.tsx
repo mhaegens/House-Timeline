@@ -64,7 +64,6 @@ export function CaptureDialog({ point, location, onClose, onSaved }: Props) {
       <section className="dialog" role="dialog" aria-modal="true" aria-labelledby="capture-title" onMouseDown={(event) => event.stopPropagation()}>
         <header className="dialog-header">
           <div>
-            <span className="eyebrow">{location ? `Update · ${location.label}` : 'New camera point'}</span>
             <h2 id="capture-title">Record a construction view</h2>
           </div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close">×</button>
@@ -121,3 +120,4 @@ export function CaptureDialog({ point, location, onClose, onSaved }: Props) {
     </div>
   );
 }
+

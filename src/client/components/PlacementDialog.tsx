@@ -48,7 +48,7 @@ export function PlacementDialog({ capture, location, floors, historyCount, onClo
     <div className="dialog-backdrop" onMouseDown={() => { if (!busy) onClose(); }}>
       <section className="dialog placement-dialog" role="dialog" aria-modal="true" aria-labelledby="placement-title" onMouseDown={(event) => event.stopPropagation()}>
         <header className="dialog-header">
-          <div><span className="eyebrow">Admin · {capture.title}</span><h2 id="placement-title">Move pin or change floor</h2></div>
+          <div><h2 id="placement-title">Move pin or change floor</h2></div>
           <button className="icon-button" disabled={busy} onClick={onClose} aria-label="Close">×</button>
         </header>
         <form className="capture-form" onSubmit={submit}>
