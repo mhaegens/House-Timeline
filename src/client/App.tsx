@@ -5,7 +5,9 @@ import { PlacementDialog } from './components/PlacementDialog';
 import { EditCaptureDialog } from './components/EditCaptureDialog';
 import { ArrowIcon, ClockIcon, LayersIcon, PlusIcon, CameraIcon, MapIcon, InfoIcon, ExpandIcon, FocusIcon } from './components/Icons';
 import { Login } from './components/Login';
-import { PanoramaViewer } from './components/PanoramaViewer';
+import { PanoramaViewer, type PanoramaHandle, type PanoramaStatus } from './components/PanoramaViewer';
+import { TimelapseControls } from './components/TimelapseControls';
+import { timelapseFrames, type TimelapseFrame } from './timelapse';
 import { captureDay, captureDays, captureOnDay, dayToDate, locationsOnDay } from './timeline';
 import { dayPosition, nearestDay, nearestPoint } from './navigation';
 import type { AppState, Capture, Floor, Location, Session } from './types';
@@ -55,6 +57,14 @@ export default function App() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [cameraFocus, setCameraFocus] = useState(false);
   const anchor = useRef<Location | null>(null);
+  const panorama = useRef<PanoramaHandle>(null);
+  const [timelapse, setTimelapse] = useState<{ location: Location; reference: Capture }>();
+  const [playing, setPlaying] = useState(false);
+  const [includeNearby, setIncludeNearby] = useState(true);
+  const [pace, setPace] = useState(3500);
+  const [readyCapture, setReadyCapture] = useState<string>();
+  const [savingDirection, setSavingDirection] = useState(false);
+  const [directionMessage, setDirectionMessage] = useState('');
 
   function acceptSession(session: Session) {
     setRole(session.role);
@@ -119,7 +129,11 @@ export default function App() {
   }, [authStatus]);
 
   const days = useMemo(() => captureDays(data.captures), [data.captures]);
-  const dayIndex = selectedDay ? days.indexOf(selectedDay) : -1;
+  const frames = useMemo(() => timelapse
+    ? timelapseFrames(data.captures, data.locations, timelapse.location, timelapse.reference, includeNearby)
+    : [], [data.captures, data.locations, timelapse, includeNearby]);
+  const timelineDays = timelapse ? frames.map(frame => frame.day) : days;
+  const dayIndex = selectedDay ? timelineDays.indexOf(selectedDay) : -1;
   const visibleLocations = useMemo(
     () => locationsOnDay(data.locations, data.captures, selectedFloor, selectedDay),
     [data.locations, data.captures, selectedFloor, selectedDay],
@@ -137,23 +151,108 @@ export default function App() {
     .sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime());
   const floor = data.floors.find((item) => item.id === selectedFloor);
 
+  const frameIndex = frames.findIndex(frame => frame.capture.id === selectedCapture?.id);
+
+  useEffect(() => { setDirectionMessage(''); }, [selectedCapture?.id]);
+
+  function showFrame(frame: TimelapseFrame) {
+    setSelectedDay(frame.day);
+    setSelectedLocationId(frame.location.id);
+    setSelectedCaptureId(frame.capture.id);
+  }
+
+  useEffect(() => {
+    if (!playing || !timelapse || readyCapture !== selectedCapture?.id) return;
+    if (frameIndex < 0 || frameIndex >= frames.length - 1) { setPlaying(false); return; }
+    const timer = window.setTimeout(() => showFrame(frames[frameIndex + 1]), pace);
+    return () => window.clearTimeout(timer);
+  }, [playing, timelapse, readyCapture, selectedCapture?.id, frameIndex, frames, pace]);
+
+  useEffect(() => {
+    const pause = () => { if (document.hidden) setPlaying(false); };
+    document.addEventListener('visibilitychange', pause);
+    return () => document.removeEventListener('visibilitychange', pause);
+  }, []);
+
+  useEffect(() => {
+    if (editingPosition || editingCapture || dialog || adminLogin) setPlaying(false);
+  }, [editingPosition, editingCapture, dialog, adminLogin]);
+
+  function photoStatus(status: PanoramaStatus, id: string) {
+    setReadyCapture(status === 'ready' ? id : undefined);
+    if (status === 'error') setPlaying(false);
+  }
+
+  function closeTimelapse() { setPlaying(false); setTimelapse(undefined); }
+
+  function startTimelapse() {
+    if (!selectedLocation || !selectedCapture) return;
+    const sequence = timelapseFrames(data.captures, data.locations, selectedLocation, selectedCapture);
+    anchor.current = selectedLocation;
+    setTimelapse({ location: selectedLocation, reference: selectedCapture });
+    setIncludeNearby(true);
+    setPlaying(sequence.length > 1);
+    setDetailsOpen(false);
+    setMapExpanded(false);
+    if (sequence[0]) showFrame(sequence[0]);
+  }
+
+  function playTimelapse() {
+    if (playing) { setPlaying(false); return; }
+    if (frameIndex >= frames.length - 1 || frameIndex < 0) { if (frames[0]) showFrame(frames[0]); }
+    setPlaying(true);
+  }
+
+  function changeNearby(value: boolean) {
+    setPlaying(false);
+    setIncludeNearby(value);
+    if (!timelapse) return;
+    const sequence = timelapseFrames(data.captures, data.locations, timelapse.location, timelapse.reference, value);
+    const nearest = nearestDay(sequence.map(frame => frame.day), selectedDay ? dayPosition(selectedDay) : 0);
+    const frame = sequence.find(frame => frame.day === nearest);
+    if (frame) showFrame(frame);
+  }
+
+  async function saveDirection() {
+    const yaw = panorama.current?.getYaw();
+    if (!selectedCapture || yaw === undefined) return;
+    setPlaying(false);
+    setSavingDirection(true);
+    setDirectionMessage('');
+    try {
+      const updated = await api.updateCapture(selectedCapture.id, { initialYaw: Math.round(yaw * 10) / 10 % 360 });
+      setData(previous => ({ ...previous, captures: previous.captures.map(capture => capture.id === updated.id ? updated : capture) }));
+      setDirectionMessage('Starting view saved.');
+    } catch (caught) { setDirectionMessage(caught instanceof Error ? caught.message : 'Could not save direction.'); }
+    finally { setSavingDirection(false); }
+  }
+
   if (authStatus === 'loading') return <div className="app-loading"><span className="spinner" />Opening archive…</div>;
   if (authStatus === 'signed-out') return <Login onAuthenticated={acceptSession} />;
 
   function chooseDay(day: string | undefined) {
     if (!day) return;
+    setPlaying(false);
+    if (timelapse) {
+      const frame = frames.find(frame => frame.day === day);
+      if (frame) showFrame(frame);
+      return;
+    }
     setSelectedDay(day);
     setSelectedCaptureId(undefined);
     setSelectedLocationId(undefined);
   }
 
   function choosePoint(location: Location) {
+    closeTimelapse();
+    setDirectionMessage('');
     anchor.current = location;
     setSelectedLocationId(location.id);
     setSelectedCaptureId(undefined);
   }
 
   function changeFloor(floorId: Floor['id']) {
+    closeTimelapse();
     anchor.current = null;
     setSelectedFloor(floorId);
     setSelectedLocationId(undefined);
@@ -171,6 +270,7 @@ export default function App() {
   }
 
   function selectHistory(capture: Capture) {
+    closeTimelapse();
     const location = data.locations.find((point) => point.id === capture.locationId);
     if (location) { anchor.current = location; setSelectedLocationId(location.id); }
     setSelectedCaptureId(capture.id);
@@ -198,9 +298,9 @@ export default function App() {
         </div>
       </header>
 
-      <main className={`workspace camera-workspace${cameraFocus ? ' camera-focus' : ''}`}>
+      <main className={`workspace camera-workspace${timelapse ? ' has-timelapse' : ''}${cameraFocus ? ' camera-focus' : ''}`}>
         <section className="camera-stage" aria-label="360 degree camera view">
-          <PanoramaViewer capture={selectedCapture} viewKey={anchor.current?.id ?? selectedLocation?.id ?? selectedFloor} />
+          <PanoramaViewer ref={panorama} capture={selectedCapture} viewKey={anchor.current?.id ?? selectedLocation?.id ?? selectedFloor} onStatus={photoStatus} />
         </section>
 
         <div className="scene-heading">
@@ -212,6 +312,7 @@ export default function App() {
         <nav className="scene-dock" aria-label="View controls">
           <button aria-label="Floor map" aria-pressed={mapOpen && !cameraFocus && !detailsOpen} onClick={() => { setMapOpen(detailsOpen || !mapOpen || cameraFocus); setDetailsOpen(false); setCameraFocus(false); }}><MapIcon /><span>Map</span></button>
           <button aria-label="Capture details" aria-pressed={detailsOpen && !cameraFocus} onClick={() => { setDetailsOpen(!detailsOpen || cameraFocus); setCameraFocus(false); setMapExpanded(false); }}><InfoIcon /><span>Details</span></button>
+          <button aria-label={timelapse ? 'Stop timelapse' : 'Start timelapse'} aria-pressed={Boolean(timelapse)} disabled={!selectedCapture?.panoramaPath} onClick={() => timelapse ? closeTimelapse() : startTimelapse()}><ClockIcon size={20} /><span>Timelapse</span></button>
           <span className="dock-divider" />
           <button aria-label={cameraFocus ? 'Restore panels' : 'Focus camera'} aria-pressed={cameraFocus} onClick={() => setCameraFocus(!cameraFocus)}><FocusIcon /><span>{cameraFocus ? 'Restore' : 'Focus'}</span></button>
         </nav>
@@ -262,6 +363,8 @@ export default function App() {
                   <button className="button primary wide" onClick={() => setDialog({ kind: 'update', location: selectedLocation })}><PlusIcon /> Add a capture here</button>
                   <button className="button secondary" onClick={() => setEditingPosition(true)}>Move pin / floor</button>
                   <button className="button secondary" onClick={() => setEditingCapture(true)}>Edit capture / notes</button>
+                  <button className="button secondary wide save-direction" disabled={savingDirection || readyCapture !== selectedCapture.id} onClick={saveDirection}>{savingDirection ? 'Saving…' : 'Save current view as starting direction'}</button>
+                  {directionMessage && <p className="direction-message" role="status">{directionMessage}</p>}
                 </div>}
                 <div className="history">
                   <div className="history-heading"><strong>Location history</strong><span>{locationHistory.length} captures</span></div>
@@ -275,38 +378,41 @@ export default function App() {
           </section>}
         </aside>}
 
+        {timelapse && <TimelapseControls label={timelapse.location.label} frames={frames} index={frameIndex} playing={playing} loading={readyCapture !== selectedCapture?.id} pace={pace} nearby={includeNearby}
+          onPlay={playTimelapse} onStep={direction => { setPlaying(false); const frame = frames[frameIndex + direction]; if (frame) showFrame(frame); }}
+          onPace={setPace} onNearby={changeNearby} onClose={closeTimelapse} />}
         <div className="scene-caption"><CameraIcon size={16} /><span>360° VIEW</span><i /><span>Drag to look around</span></div>
         <div className="scene-floor"><LayersIcon size={14} />{floor?.name}</div>
       </main>
 
       <footer className="timeline-panel" aria-label="Construction timeline">
-        <div className="timeline-label"><ClockIcon /><div><span>Construction timeline</span><strong>{selectedDay ? formatDay(selectedDay) : 'No captures yet'}</strong><small>{visibleLocations.length} camera points · {floor?.name}</small></div></div>
+        <div className="timeline-label"><ClockIcon /><div><span>{timelapse ? 'Point timelapse' : 'Construction timeline'}</span><strong>{selectedDay ? formatDay(selectedDay) : 'No captures yet'}</strong><small>{timelapse ? `${frames.length} dates · ${timelapse.location.label}` : `${visibleLocations.length} camera points · ${floor?.name}`}</small></div></div>
         <div className="timeline-control">
-          <div className="timeline-dates"><span>{days[0] ? shortDay(days[0]) : 'Start'}</span><span className="timeline-hint">Drag through time · closest camera point</span><span>{days.at(-1) ? shortDay(days.at(-1)!) : 'Today'}</span></div>
+          <div className="timeline-dates"><span>{timelineDays[0] ? shortDay(timelineDays[0]) : 'Start'}</span><span className="timeline-hint">{timelapse ? 'Drag through this point’s visits' : 'Drag through time · closest camera point'}</span><span>{timelineDays.at(-1) ? shortDay(timelineDays.at(-1)!) : 'Today'}</span></div>
           <input
             aria-label="Construction day"
             aria-valuetext={selectedDay ? formatDay(selectedDay) : 'No captures yet'}
             type="range"
-            min={days.length ? dayPosition(days[0]) : 0}
-            max={days.length ? dayPosition(days.at(-1)!) : 0}
+            min={timelineDays.length ? dayPosition(timelineDays[0]) : 0}
+            max={timelineDays.length ? dayPosition(timelineDays.at(-1)!) : 0}
             value={selectedDay ? dayPosition(selectedDay) : 0}
-            disabled={days.length < 2}
-            onChange={(event) => chooseDay(nearestDay(days, Number(event.target.value)))}
+            disabled={timelineDays.length < 2}
+            onChange={(event) => chooseDay(nearestDay(timelineDays, Number(event.target.value)))}
             onKeyDown={(event) => {
               const direction = ['ArrowRight', 'ArrowUp', 'PageUp'].includes(event.key) ? 1 : ['ArrowLeft', 'ArrowDown', 'PageDown'].includes(event.key) ? -1 : 0;
               if (direction || event.key === 'Home' || event.key === 'End') {
                 event.preventDefault();
-                chooseDay(event.key === 'Home' ? days[0] : event.key === 'End' ? days.at(-1) : days[Math.max(0, Math.min(days.length - 1, dayIndex + direction))]);
+                chooseDay(event.key === 'Home' ? timelineDays[0] : event.key === 'End' ? timelineDays.at(-1) : timelineDays[Math.max(0, Math.min(timelineDays.length - 1, dayIndex + direction))]);
               }
             }}
-            style={{ '--progress': days.length > 1 && selectedDay ? `${((dayPosition(selectedDay) - dayPosition(days[0])) / (dayPosition(days.at(-1)!) - dayPosition(days[0]))) * 100}%` : '0%' } as React.CSSProperties}
+            style={{ '--progress': timelineDays.length > 1 && selectedDay ? `${((dayPosition(selectedDay) - dayPosition(timelineDays[0])) / (dayPosition(timelineDays.at(-1)!) - dayPosition(timelineDays[0]))) * 100}%` : '0%' } as React.CSSProperties}
           />
-          <div className="timeline-ticks">{days.map((day) => <button key={day} className={day === selectedDay ? 'active' : ''} style={{ left: days.length > 1 ? `${((dayPosition(day) - dayPosition(days[0])) / (dayPosition(days.at(-1)!) - dayPosition(days[0]))) * 100}%` : '0%' }} aria-label={`Jump to ${formatDay(day)}`} title={formatDay(day)} onClick={() => chooseDay(day)} />)}</div>
+          <div className="timeline-ticks">{timelineDays.map((day) => <button key={day} className={day === selectedDay ? 'active' : ''} style={{ left: timelineDays.length > 1 ? `${((dayPosition(day) - dayPosition(timelineDays[0])) / (dayPosition(timelineDays.at(-1)!) - dayPosition(timelineDays[0]))) * 100}%` : '0%' }} aria-label={`Jump to ${formatDay(day)}`} title={formatDay(day)} onClick={() => chooseDay(day)} />)}</div>
         </div>
         <div className="timeline-stepper">
-          <button aria-label="Previous capture date" disabled={dayIndex <= 0} onClick={() => chooseDay(days[dayIndex - 1])}>‹</button>
-          <span>{days.length ? `${dayIndex + 1} / ${days.length}` : '0 / 0'}</span>
-          <button aria-label="Next capture date" disabled={dayIndex < 0 || dayIndex >= days.length - 1} onClick={() => chooseDay(days[dayIndex + 1])}>›</button>
+          <button aria-label="Previous capture date" disabled={dayIndex <= 0} onClick={() => chooseDay(timelineDays[dayIndex - 1])}>‹</button>
+          <span>{timelineDays.length ? `${dayIndex + 1} / ${timelineDays.length}` : '0 / 0'}</span>
+          <button aria-label="Next capture date" disabled={dayIndex < 0 || dayIndex >= timelineDays.length - 1} onClick={() => chooseDay(timelineDays[dayIndex + 1])}>›</button>
         </div>
       </footer>
 

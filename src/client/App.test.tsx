@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useEffect } from 'react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import App from './App';
 import { api } from './api';
 
-vi.mock('./components/PanoramaViewer', () => ({ PanoramaViewer: ({capture}: {capture?: {id: string}}) => <div data-testid="camera">{capture?.id ?? 'empty'}</div> }));
+vi.mock('./components/PanoramaViewer', () => ({ PanoramaViewer: ({capture, onStatus}: {capture?: {id: string}; onStatus?: (status: 'ready', id: string) => void}) => {
+  useEffect(() => { if (capture) onStatus?.('ready', capture.id); }, [capture?.id]);
+  return <div data-testid="camera">{capture?.id ?? 'empty'}</div>;
+} }));
 vi.mock('./api', () => ({ api: {
   session: async () => ({authenticated: true, role: 'viewer'}),
   state: async () => ({
@@ -21,7 +25,7 @@ vi.mock('./api', () => ({ api: {
     ],
   }),
 }}));
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
 async function openArchive() {
   render(<App />);
@@ -72,5 +76,47 @@ describe('camera workspace', () => {
     expect(screen.getByRole('slider', {name: 'Construction day'})).toBeTruthy();
     fireEvent.click(screen.getByRole('button', {name: 'Ground floor'}));
     expect(screen.getByTestId('camera').textContent).toBe('latest');
+  });
+});
+
+
+describe('point timelapse', () => {
+  it('plays only this area, waits at each date, and stops at the final photograph', async () => {
+    await openArchive();
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole('button', {name: 'Start timelapse'}));
+    expect(screen.getByTestId('camera').textContent).toBe('nearby');
+    expect(screen.getByText('Nearby · Kitchen doorway')).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(3500); });
+    expect(screen.getByTestId('camera').textContent).toBe('latest');
+    expect(screen.getByRole('button', {name: 'Replay timelapse'})).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(15000); });
+    expect(screen.getByTestId('camera').textContent).toBe('latest');
+  });
+  it('pauses playback for manual date scrubbing', async () => {
+    await openArchive();
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole('button', {name: 'Start timelapse'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Pause timelapse'}));
+    await act(async () => { vi.advanceTimersByTime(15000); });
+    expect(screen.getByTestId('camera').textContent).toBe('nearby');
+    fireEvent.click(screen.getByRole('button', {name: 'Next capture date'}));
+    expect(screen.getByTestId('camera').textContent).toBe('latest');
+    expect(screen.getByRole('button', {name: 'Replay timelapse'})).toBeTruthy();
+  });
+  it('removes neighbouring views when nearby matching is disabled', async () => {
+    await openArchive();
+    fireEvent.click(screen.getByRole('button', {name: 'Start timelapse'}));
+    fireEvent.click(screen.getByRole('checkbox', {name: 'Include nearby photos'}));
+    expect(screen.getByTestId('camera').textContent).toBe('latest');
+    expect(screen.getByRole('button', {name: 'Replay timelapse'}).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('slider', {name: 'Construction day'}).hasAttribute('disabled')).toBe(true);
+  });
+  it('closes playback when another floor or camera is chosen', async () => {
+    await openArchive();
+    fireEvent.click(screen.getByRole('button', {name: 'Start timelapse'}));
+    fireEvent.click(screen.getByRole('button', {name: 'First floor'}));
+    expect(screen.queryByRole('region', {name: 'Timelapse controls'})).toBeNull();
+    expect(screen.queryByText('Save current view as starting direction')).toBeNull();
   });
 });
